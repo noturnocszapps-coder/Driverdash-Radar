@@ -1,0 +1,100 @@
+{
+  "entities": {
+    "call_analysis": {
+      "title": "Call Analysis",
+      "description": "Instant analysis of a ride call to determine profitability.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "User ID of the driver" },
+        "app_name": { "type": "string", "enum": ["Uber", "99", "inDrive", "Particular"] },
+        "fare_value": { "type": "number" },
+        "pickup_km": { "type": "number" },
+        "trip_km": { "type": "number" },
+        "total_km": { "type": "number" },
+        "estimated_minutes": { "type": "number" },
+        "destination_text": { "type": "string" },
+        "destination_bairro": { "type": "string" },
+        "destination_region": { "type": "string" },
+        "value_per_km": { "type": "number" },
+        "value_per_hour": { "type": "number" },
+        "estimated_cost": { "type": "number" },
+        "estimated_profit": { "type": "number" },
+        "ride_score": { "type": "number" },
+        "recommendation": { "type": "string", "enum": ["ruim", "fraca", "razoavel", "boa", "excelente"] },
+        "accepted": { "type": "boolean" },
+        "notes": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "app_name", "fare_value", "total_km", "ride_score"]
+    },
+    "completed_ride": {
+      "title": "Completed Ride",
+      "description": "A ride that was actually finished by the driver.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "app_name": { "type": "string" },
+        "started_at": { "type": "string", "format": "date-time" },
+        "finished_at": { "type": "string", "format": "date-time" },
+        "origin_text": { "type": "string" },
+        "origin_bairro": { "type": "string" },
+        "destination_text": { "type": "string" },
+        "destination_bairro": { "type": "string" },
+        "total_km": { "type": "number" },
+        "ride_value": { "type": "number" },
+        "duration_minutes": { "type": "number" },
+        "estimated_cost": { "type": "number" },
+        "estimated_profit": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "app_name", "ride_value", "total_km"]
+    },
+    "driver_settings": {
+      "title": "Driver Settings",
+      "description": "Personalized thresholds and costs for the driver.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "city": { "type": "string" },
+        "minimum_value_per_km": { "type": "number" },
+        "minimum_value_per_hour": { "type": "number" },
+        "max_pickup_km": { "type": "number" },
+        "vehicle_cost_per_km": { "type": "number" },
+        "preferred_apps": { "type": "array", "items": { "type": "string" } },
+        "bad_regions": { "type": "array", "items": { "type": "string" } },
+        "preferred_regions": { "type": "array", "items": { "type": "string" } },
+        "daily_goal": { "type": "number" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid"]
+    },
+    "neighborhood_insight": {
+      "title": "Neighborhood Insight",
+      "description": "Aggregated data for a specific neighborhood.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "bairro": { "type": "string" },
+        "regiao": { "type": "string" },
+        "app_name": { "type": "string" },
+        "total_calls": { "type": "number" },
+        "accepted_calls": { "type": "number" },
+        "refused_calls": { "type": "number" },
+        "avg_fare": { "type": "number" },
+        "avg_total_km": { "type": "number" },
+        "avg_value_per_km": { "type": "number" },
+        "avg_value_per_hour": { "type": "number" },
+        "avg_profit": { "type": "number" },
+        "return_score": { "type": "number" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "bairro"]
+    }
+  },
+  "firestore": {
+    "/call_analyses/{id}": { "schema": "call_analysis", "description": "Analyses of incoming calls" },
+    "/completed_rides/{id}": { "schema": "completed_ride", "description": "History of finished rides" },
+    "/driver_settings/{uid}": { "schema": "driver_settings", "description": "User specific settings" },
+    "/neighborhood_insights/{id}": { "schema": "neighborhood_insight", "description": "Aggregated neighborhood data" }
+  }
+}

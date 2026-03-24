@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-black text-zinc-100 antialiased selection:bg-blue-500/30;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Custom animations for cards */
+.card-hover {
+  @apply transition-all duration-300 hover:scale-[1.02] active:scale-[0.98];
+}
+
+/* Glassmorphism effect */
+.glass {
+  @apply bg-zinc-900/80 backdrop-blur-xl border border-zinc-800;
+}
