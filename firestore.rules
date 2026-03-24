@@ -1,71 +1,48 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper Functions
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
+    
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
+    
     function isDocOwner() {
       return isAuthenticated() && request.auth.uid == resource.data.uid;
     }
-    function uidUnchanged() {
-      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
-    }
-    function uidNotModified() {
-      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
-    }
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
+
+    // Rules for driver_settings
+    match /driver_settings/{userId} {
+      allow read, write: if isOwner(userId);
     }
 
-    // Domain Validators
-    function isValidCallAnalysis(data) {
-      return data.app_name in ["Uber", "99", "inDrive", "Particular"] &&
-             data.fare_value is number && data.fare_value >= 0 &&
-             data.total_km is number && data.total_km >= 0 &&
-             data.ride_score is number && data.ride_score >= 0 && data.ride_score <= 100;
+    // Rules for call_analyses
+    match /call_analyses/{analysisId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isDocOwner();
     }
 
-    function isValidCompletedRide(data) {
-      return data.app_name is string &&
-             data.ride_value is number && data.ride_value >= 0 &&
-             data.total_km is number && data.total_km >= 0;
+    // Rules for completed_rides
+    match /completed_rides/{rideId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isDocOwner();
     }
 
-    function isValidDriverSettings(data) {
-      return (data.minimum_value_per_km is number || !('minimum_value_per_km' in data)) &&
-             (data.daily_goal is number || !('daily_goal' in data));
+    // Rules for neighborhood_insights
+    match /neighborhood_insights/{insightId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isDocOwner();
     }
 
-    // Rules
-    match /call_analyses/{id} {
-      allow read: if isDocOwner();
-      allow create: if isAuthenticated() && uidUnchanged() && isValidCallAnalysis(request.resource.data);
-      allow update: if isDocOwner() && uidNotModified() && isValidCallAnalysis(request.resource.data);
-      allow delete: if isDocOwner();
-    }
-
-    match /completed_rides/{id} {
-      allow read: if isDocOwner();
-      allow create: if isAuthenticated() && uidUnchanged() && isValidCompletedRide(request.resource.data);
-      allow update: if isDocOwner() && uidNotModified() && isValidCompletedRide(request.resource.data);
-      allow delete: if isDocOwner();
-    }
-
-    match /driver_settings/{uid} {
-      allow read: if isOwner(uid);
-      allow create: if isOwner(uid) && isValidDriverSettings(request.resource.data);
-      allow update: if isOwner(uid) && isValidDriverSettings(request.resource.data);
-    }
-
-    match /neighborhood_insights/{id} {
-      allow read: if isDocOwner();
-      allow create: if isAuthenticated() && uidUnchanged();
-      allow update: if isDocOwner() && uidNotModified();
-      allow delete: if isDocOwner();
+    // Rules for users
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
     }
   }
 }

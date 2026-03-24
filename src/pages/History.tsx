@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
-import { db } from "../firebase";
-import { useAuth } from "../App";
+import { db, isFirebaseConfigured } from "../firebase";
+import { useAuth } from "../contexts/AuthContext";
 import { CallAnalysis, CompletedRide } from "../types";
 import { 
   History, 
@@ -19,34 +19,40 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export default function HistoryPage() {
-  const { user } = useAuth();
+  const { user, isLocalMode } = useAuth();
   const [activeTab, setActiveTab] = useState<"analyses" | "completed">("analyses");
   const [analyses, setAnalyses] = useState<CallAnalysis[]>([]);
   const [completed, setCompleted] = useState<CompletedRide[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
     const fetchData = async () => {
       setLoading(true);
       try {
-        const analysesQuery = query(
-          collection(db, "call_analyses"),
-          where("uid", "==", user.uid),
-          orderBy("created_at", "desc"),
-          limit(50)
-        );
-        const analysesSnap = await getDocs(analysesQuery);
-        setAnalyses(analysesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CallAnalysis)));
+        if (isLocalMode || !db || !user) {
+          const localAnalyses = JSON.parse(localStorage.getItem("call_analyses") || "[]");
+          const localCompleted = JSON.parse(localStorage.getItem("completed_rides") || "[]");
+          setAnalyses(localAnalyses.reverse());
+          setCompleted(localCompleted.reverse());
+        } else {
+          const analysesQuery = query(
+            collection(db, "call_analyses"),
+            where("uid", "==", user.uid),
+            orderBy("created_at", "desc"),
+            limit(50)
+          );
+          const analysesSnap = await getDocs(analysesQuery);
+          setAnalyses(analysesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CallAnalysis)));
 
-        const completedQuery = query(
-          collection(db, "completed_rides"),
-          where("uid", "==", user.uid),
-          orderBy("created_at", "desc"),
-          limit(50)
-        );
-        const completedSnap = await getDocs(completedQuery);
-        setCompleted(completedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CompletedRide)));
+          const completedQuery = query(
+            collection(db, "completed_rides"),
+            where("uid", "==", user.uid),
+            orderBy("created_at", "desc"),
+            limit(50)
+          );
+          const completedSnap = await getDocs(completedQuery);
+          setCompleted(completedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CompletedRide)));
+        }
       } catch (error) {
         console.error("Fetch Error:", error);
       } finally {
@@ -54,7 +60,7 @@ export default function HistoryPage() {
       }
     };
     fetchData();
-  }, [user]);
+  }, [user, isLocalMode]);
 
   return (
     <div className="space-y-8">

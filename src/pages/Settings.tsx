@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../firebase";
-import { useAuth } from "../App";
+import { db, isFirebaseConfigured } from "../firebase";
+import { useAuth } from "../contexts/AuthContext";
 import { DriverSettings, AppName } from "../types";
 import { 
   Settings, 
@@ -37,7 +37,7 @@ const SettingItem = ({ label, value, onChange, type = "number", step = "0.1", ic
 );
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, isLocalMode } = useAuth();
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState<DriverSettings>({
     uid: "",
@@ -54,8 +54,15 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    if (!user) return;
     const fetchSettings = async () => {
+      if (isLocalMode || !db || !user) {
+        const localSettings = localStorage.getItem("driver_settings");
+        if (localSettings) {
+          setSettings(JSON.parse(localSettings));
+        }
+        return;
+      }
+
       const docRef = doc(db, "driver_settings", user.uid);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
@@ -65,16 +72,23 @@ export default function SettingsPage() {
       }
     };
     fetchSettings();
-  }, [user]);
+  }, [user, isLocalMode]);
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user && !isLocalMode) return;
     setLoading(true);
     try {
-      await setDoc(doc(db, "driver_settings", user.uid), {
+      const finalSettings = {
         ...settings,
+        uid: user?.uid || "local",
         updated_at: new Date().toISOString()
-      });
+      };
+
+      if (isLocalMode || !db) {
+        localStorage.setItem("driver_settings", JSON.stringify(finalSettings));
+      } else {
+        await setDoc(doc(db, "driver_settings", user!.uid), finalSettings);
+      }
       alert("Configurações salvas!");
     } catch (error) {
       console.error("Save Error:", error);

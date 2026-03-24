@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { collection, addDoc } from "firebase/firestore";
-import { db } from "../firebase";
-import { useAuth } from "../App";
+import { db, isFirebaseConfigured } from "../firebase";
+import { useAuth } from "../contexts/AuthContext";
 import { AppName, CompletedRide } from "../types";
 import { 
   CheckCircle2, 
@@ -16,7 +16,7 @@ import {
 import { cn } from "../lib/utils";
 
 export default function RegisterRide() {
-  const { user } = useAuth();
+  const { user, isLocalMode } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     app_name: "Uber" as AppName,
@@ -28,11 +28,13 @@ export default function RegisterRide() {
   });
 
   const handleSave = async () => {
-    if (!user || !formData.ride_value || !formData.total_km) return;
+    if (!formData.ride_value || !formData.total_km) return;
+    if (!user && !isLocalMode) return;
+    
     setLoading(true);
     try {
       const ride: CompletedRide = {
-        uid: user.uid,
+        uid: user?.uid || "local",
         app_name: formData.app_name,
         started_at: new Date().toISOString(),
         finished_at: new Date().toISOString(),
@@ -48,7 +50,14 @@ export default function RegisterRide() {
         created_at: new Date().toISOString()
       };
 
-      await addDoc(collection(db, "completed_rides"), ride);
+      if (isLocalMode || !db) {
+        const history = JSON.parse(localStorage.getItem("completed_rides") || "[]");
+        history.push(ride);
+        localStorage.setItem("completed_rides", JSON.stringify(history));
+      } else {
+        await addDoc(collection(db, "completed_rides"), ride);
+      }
+      
       setFormData({
         app_name: "Uber",
         origin_bairro: "",

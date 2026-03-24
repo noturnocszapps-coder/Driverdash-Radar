@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
-import { db } from "../firebase";
-import { useAuth } from "../App";
+import { db, isFirebaseConfigured } from "../firebase";
+import { useAuth } from "../contexts/AuthContext";
 import { CallAnalysis, CompletedRide } from "../types";
 import { 
   TrendingUp, 
@@ -10,9 +10,11 @@ import {
   MapPin, 
   Smartphone,
   ChevronRight,
-  Zap
+  Zap,
+  LayoutDashboard
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { Link } from "react-router-dom";
 
 const StatCard = ({ label, value, subValue, icon: Icon, trend }: any) => (
   <div className="rounded-2xl bg-zinc-900 p-5 border border-zinc-800 shadow-sm">
@@ -20,7 +22,7 @@ const StatCard = ({ label, value, subValue, icon: Icon, trend }: any) => (
       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400">
         <Icon className="h-5 w-5" />
       </div>
-      {trend && (
+      {trend !== undefined && (
         <span className={cn(
           "flex items-center gap-1 text-xs font-bold",
           trend > 0 ? "text-emerald-500" : "text-rose-500"
@@ -39,7 +41,8 @@ const StatCard = ({ label, value, subValue, icon: Icon, trend }: any) => (
 );
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, isLocalMode } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalCalls: 0,
     acceptedCalls: 0,
@@ -52,20 +55,69 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    if (!user) return;
-    // In a real app, we'd fetch this from Firestore
-    // For now, let's mock some data to show the premium UI
-    setStats({
-      totalCalls: 42,
-      acceptedCalls: 12,
-      refusedCalls: 30,
-      acceptanceRate: 28,
-      avgTicket: 24.50,
-      avgKmValue: 2.15,
-      bestBairro: "Pinheiros",
-      bestApp: "Uber"
-    });
-  }, [user]);
+    const fetchStats = async () => {
+      setLoading(true);
+      let analyses: CallAnalysis[] = [];
+
+      try {
+        if (isLocalMode || !db || !user) {
+          analyses = JSON.parse(localStorage.getItem("call_analyses") || "[]");
+        } else {
+          const q = query(
+            collection(db, "call_analyses"),
+            where("uid", "==", user.uid),
+            orderBy("created_at", "desc"),
+            limit(100)
+          );
+          const querySnapshot = await getDocs(q);
+          analyses = querySnapshot.docs.map(doc => doc.data() as CallAnalysis);
+        }
+
+        if (analyses.length > 0) {
+          const total = analyses.length;
+          const accepted = analyses.filter(a => a.accepted).length;
+          const refused = total - accepted;
+          const rate = Math.round((accepted / total) * 100);
+          
+          const avgTicket = analyses.reduce((acc, curr) => acc + curr.fare_value, 0) / total;
+          const avgKm = analyses.reduce((acc, curr) => acc + curr.value_per_km, 0) / total;
+
+          // Find best app
+          const appCounts: Record<string, number> = {};
+          analyses.forEach(a => {
+            if (a.accepted) appCounts[a.app_name] = (appCounts[a.app_name] || 0) + 1;
+          });
+          const bestApp = Object.entries(appCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "---";
+
+          // Find best bairro
+          const bairroCounts: Record<string, number> = {};
+          analyses.forEach(a => {
+            if (a.accepted && a.destination_bairro) {
+              bairroCounts[a.destination_bairro] = (bairroCounts[a.destination_bairro] || 0) + 1;
+            }
+          });
+          const bestBairro = Object.entries(bairroCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "---";
+
+          setStats({
+            totalCalls: total,
+            acceptedCalls: accepted,
+            refusedCalls: refused,
+            acceptanceRate: rate,
+            avgTicket,
+            avgKmValue: avgKm,
+            bestBairro,
+            bestApp
+          });
+        }
+      } catch (error) {
+        console.error("Fetch Stats Error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [user, isLocalMode]);
 
   return (
     <div className="space-y-8">
@@ -150,9 +202,9 @@ export default function Dashboard() {
           </div>
           <Zap className="h-10 w-10 text-white/50" />
         </div>
-        <button className="mt-6 w-full rounded-xl bg-white py-4 font-bold text-blue-700 transition-transform active:scale-95">
+        <Link to="/radar" className="mt-6 block w-full text-center rounded-xl bg-white py-4 font-bold text-blue-700 transition-transform active:scale-95">
           Nova Análise
-        </button>
+        </Link>
       </section>
     </div>
   );

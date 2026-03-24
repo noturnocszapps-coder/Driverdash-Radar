@@ -1,4 +1,5 @@
 import React from "react";
+import { useAuth } from "../contexts/AuthContext";
 import { 
   BrainCircuit, 
   Clock, 
@@ -27,6 +28,7 @@ const InsightCard = ({ title, value, description, icon: Icon, color }: any) => (
 );
 
 export default function Intelligence() {
+  const { user, isLocalMode } = useAuth();
   return (
     <div className="space-y-8">
       <section className="space-y-1">

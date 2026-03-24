@@ -1,4 +1,5 @@
 import React from "react";
+import { useAuth } from "../contexts/AuthContext";
 import { 
   Route as RouteIcon, 
   Sun, 
@@ -52,6 +53,7 @@ const PeriodCard = ({ period, title, neighborhoods, app, icon: Icon, color }: an
 );
 
 export default function DailyRoute() {
+  const { user, isLocalMode } = useAuth();
   return (
     <div className="space-y-8">
       <section className="space-y-1">

@@ -1,7 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
-import { onAuthStateChanged, User, signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
-import { auth } from "./firebase";
 import { 
   LayoutDashboard, 
   Radar, 
@@ -13,10 +11,12 @@ import {
   Settings, 
   LogOut,
   Menu,
-  X
+  X,
+  AlertTriangle
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "./lib/utils";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 // Pages
 import Dashboard from "./pages/Dashboard";
@@ -28,53 +28,22 @@ import DailyRoute from "./pages/DailyRoute";
 import HistoryPage from "./pages/History";
 import SettingsPage from "./pages/Settings";
 
-// Auth Context
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-}
-
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
-
-export const useAuth = () => useContext(AuthContext);
-
-const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-    });
-    return unsubscribe;
-  }, []);
-
-  return (
-    <AuthContext.Provider value={{ user, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
 // Protected Route
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, isLocalMode } = useAuth();
+  
+  if (isLocalMode) return <>{children}</>;
   if (loading) return <div className="flex h-screen items-center justify-center bg-black text-white">Carregando...</div>;
   if (!user) return <Navigate to="/login" />;
+  
   return <>{children}</>;
 };
 
 // Login Page
 const Login = () => {
-  const handleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error("Login Error:", error);
-    }
-  };
+  const { login, user, isLocalMode } = useAuth();
+  
+  if (isLocalMode || user) return <Navigate to="/" />;
 
   return (
     <div className="flex h-screen flex-col items-center justify-center bg-black px-6 text-center">
@@ -84,12 +53,16 @@ const Login = () => {
       <h1 className="mb-2 text-3xl font-bold tracking-tight text-white">DriverDash Radar</h1>
       <p className="mb-8 text-sm text-zinc-400">Inteligência operacional para motoristas de elite.</p>
       <button
-        onClick={handleLogin}
+        onClick={login}
         className="flex w-full max-w-xs items-center justify-center gap-3 rounded-xl bg-white px-6 py-4 font-semibold text-black transition-transform active:scale-95"
       >
         <img src="https://www.google.com/favicon.ico" alt="Google" className="h-5 w-5" />
         Entrar com Google
       </button>
+      
+      <Link to="/" className="mt-6 text-sm text-zinc-500 hover:text-zinc-300">
+        Continuar sem login (Modo Local)
+      </Link>
     </div>
   );
 };
@@ -97,21 +70,30 @@ const Login = () => {
 // Layout
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { logout, isLocalMode, user } = useAuth();
   const location = useLocation();
 
   const navItems = [
     { path: "/", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/radar", label: "Radar Analysis", icon: Radar },
-    { path: "/register", label: "Concluir Corrida", icon: CheckCircle2 },
+    { path: "/radar", label: "Radar", icon: Radar },
+    { path: "/register", label: "Concluir", icon: CheckCircle2 },
     { path: "/neighborhoods", label: "Bairros", icon: MapPin },
     { path: "/intelligence", label: "Inteligência", icon: BrainCircuit },
-    { path: "/route", label: "Rota do Dia", icon: RouteIcon },
+    { path: "/route", label: "Rota", icon: RouteIcon },
     { path: "/history", label: "Histórico", icon: History },
     { path: "/settings", label: "Ajustes", icon: Settings },
   ];
 
   return (
     <div className="min-h-screen bg-black text-zinc-100 pb-20">
+      {/* Local Mode Warning */}
+      {isLocalMode && (
+        <div className="flex items-center justify-center gap-2 bg-amber-500/10 py-2 text-[10px] font-bold text-amber-500 uppercase tracking-widest border-b border-amber-500/20">
+          <AlertTriangle className="h-3 w-3" />
+          Modo Local Ativo - Dados não sincronizados
+        </div>
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-zinc-800 bg-black/80 px-6 backdrop-blur-xl">
         <div className="flex items-center gap-2">
@@ -196,13 +178,28 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                     {item.label}
                   </Link>
                 ))}
-                <button
-                  onClick={() => signOut(auth)}
-                  className="mt-4 flex items-center gap-3 rounded-xl px-4 py-3 font-medium text-red-400 hover:bg-red-500/10"
-                >
-                  <LogOut className="h-5 w-5" />
-                  Sair
-                </button>
+                {!isLocalMode && user && (
+                  <button
+                    onClick={() => {
+                      logout();
+                      setIsMenuOpen(false);
+                    }}
+                    className="mt-4 flex items-center gap-3 rounded-xl px-4 py-3 font-medium text-red-400 hover:bg-red-500/10"
+                  >
+                    <LogOut className="h-5 w-5" />
+                    Sair
+                  </button>
+                )}
+                {!isLocalMode && !user && (
+                  <Link
+                    to="/login"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="mt-4 flex items-center gap-3 rounded-xl px-4 py-3 font-medium text-blue-400 hover:bg-blue-500/10"
+                  >
+                    <LogOut className="h-5 w-5" />
+                    Entrar
+                  </Link>
+                )}
               </div>
             </motion.div>
           </>
