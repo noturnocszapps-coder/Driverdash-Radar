@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import {
-  onAuthStateChanged,
-  signInWithRedirect,
+import { 
+  onAuthStateChanged, 
+  signInWithRedirect, 
   getRedirectResult,
-  signOut,
-  User,
+  signOut, 
+  User, 
+  GoogleAuthProvider 
 } from "firebase/auth";
 import { auth, googleProvider, isFirebaseConfigured } from "../firebase";
 
@@ -23,35 +24,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isFirebaseConfigured || !auth || !googleProvider) {
+    if (!isFirebaseConfigured || !auth) {
       setLoading(false);
       return;
     }
 
-    const initAuth = async () => {
+    // Handle redirect result on mount
+    const handleRedirect = async () => {
       try {
-        await getRedirectResult(auth);
+        const result = await getRedirectResult(auth);
+        if (result) {
+          console.log("Redirect login successful:", result.user.email);
+        }
       } catch (error) {
         console.error("Redirect Login Error:", error);
       }
-
-      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-        setUser(currentUser);
-        setLoading(false);
-      });
-
-      return unsubscribe;
     };
 
-    let unsubscribeRef: (() => void) | undefined;
+    handleRedirect();
 
-    initAuth().then((unsubscribe) => {
-      unsubscribeRef = unsubscribe;
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
     });
 
-    return () => {
-      if (unsubscribeRef) unsubscribeRef();
-    };
+    return () => unsubscribe();
   }, []);
 
   const login = async () => {
@@ -59,19 +56,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn("Login not available in local mode.");
       return;
     }
-
     try {
       setLoading(true);
       await signInWithRedirect(auth, googleProvider);
     } catch (error) {
-      console.error("Login Error:", error);
       setLoading(false);
+      console.error("Login Initiation Error:", error);
     }
   };
 
   const logout = async () => {
     if (!isFirebaseConfigured || !auth) return;
-
     try {
       await signOut(auth);
     } catch (error) {
@@ -80,15 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        login,
-        logout,
-        isLocalMode: !isFirebaseConfigured,
-      }}
-    >
+    <AuthContext.Provider value={{ user, loading, login, logout, isLocalMode: !isFirebaseConfigured }}>
       {children}
     </AuthContext.Provider>
   );
