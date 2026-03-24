@@ -184,7 +184,7 @@ export default function Analysis() {
     else if (score >= 40) recommendation = "fraca";
 
     const analysis: CallAnalysis = {
-      uid: user!.uid,
+      uid: user?.uid || "local",
       app_name: appName,
       fare_value: fare,
       pickup_km: pickupKm,
@@ -207,7 +207,7 @@ export default function Analysis() {
     setResult(analysis);
 
     // Persist state
-    localStorage.setItem(`last_analysis_${user!.uid}`, JSON.stringify({
+    localStorage.setItem(`last_analysis_${user?.uid || "local"}`, JSON.stringify({
       app_name: appName,
       pickup_km: pickupKm,
       trip_km: tripKm,
@@ -222,7 +222,6 @@ export default function Analysis() {
 
   const handleSave = async (accepted: boolean) => {
     if (!result) return;
-    const { user, isLocalMode } = useAuth();
     if (!user && !isLocalMode) return;
     
     setLoading(true);
@@ -266,12 +265,16 @@ export default function Analysis() {
   const regionReturn = getRegionReturn(destinationBairro);
 
   return (
-    <div className="space-y-6 max-w-md mx-auto">
+    <form 
+      onSubmit={(e) => e.preventDefault()}
+      className="space-y-6 max-w-md mx-auto"
+    >
       {/* App Selector - Compact */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
         {(["Uber", "99", "inDrive", "Particular"] as AppName[]).map((app) => (
           <button
             key={app}
+            type="button"
             onClick={() => setAppName(app)}
             className={cn(
               "whitespace-nowrap rounded-xl px-4 py-2 text-xs font-bold border transition-all active:scale-95",
@@ -305,6 +308,7 @@ export default function Analysis() {
         {PRESETS.map((p) => (
           <button
             key={p.label}
+            type="button"
             onClick={() => applyPreset(p)}
             className={cn("flex flex-col items-center justify-center rounded-2xl border py-3 transition-all active:scale-90", p.color)}
           >
@@ -386,6 +390,7 @@ export default function Analysis() {
 
             <div className="grid grid-cols-2 gap-4 pt-2">
               <button
+                type="button"
                 onClick={() => handleSave(false)}
                 disabled={loading}
                 className="flex items-center justify-center gap-3 rounded-3xl bg-zinc-900 py-6 font-black text-rose-500 border border-zinc-800 active:scale-95 transition-all"
@@ -394,6 +399,7 @@ export default function Analysis() {
                 RECUSEI
               </button>
               <button
+                type="button"
                 onClick={() => handleSave(true)}
                 disabled={loading}
                 className="flex items-center justify-center gap-3 rounded-3xl bg-emerald-600 py-6 font-black text-white shadow-xl shadow-emerald-500/20 active:scale-95 transition-all"
@@ -413,6 +419,6 @@ export default function Analysis() {
           <span className="text-[10px] font-black uppercase tracking-[0.2em]">Radar Pronto</span>
         </div>
       )}
-    </div>
+    </form>
   );
 }

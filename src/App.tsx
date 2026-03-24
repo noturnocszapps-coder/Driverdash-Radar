@@ -17,6 +17,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "./lib/utils";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { Outlet } from "react-router-dom";
 
 // Pages
 import Dashboard from "./pages/Dashboard";
@@ -29,21 +30,21 @@ import HistoryPage from "./pages/History";
 import SettingsPage from "./pages/Settings";
 
 // Protected Route
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ProtectedRoute: React.FC = () => {
   const { user, loading, isLocalMode } = useAuth();
   
-  if (isLocalMode) return <>{children}</>;
+  if (isLocalMode) return <Outlet />;
   if (loading) return <div className="flex h-screen items-center justify-center bg-black text-white">Carregando...</div>;
-  if (!user) return <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" replace />;
   
-  return <>{children}</>;
+  return <Outlet />;
 };
 
 // Login Page
 const Login = () => {
   const { login, user, isLocalMode } = useAuth();
   
-  if (isLocalMode || user) return <Navigate to="/" />;
+  if (isLocalMode || user) return <Navigate to="/" replace />;
 
   return (
     <div className="flex h-screen flex-col items-center justify-center bg-black px-6 text-center">
@@ -68,7 +69,7 @@ const Login = () => {
 };
 
 // Layout
-const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const Layout: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { logout, isLocalMode, user } = useAuth();
   const location = useLocation();
@@ -117,7 +118,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
           >
-            {children}
+            <Outlet />
           </motion.div>
         </AnimatePresence>
       </main>
@@ -215,25 +216,18 @@ export default function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route
-            path="/*"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/radar" element={<Analysis />} />
-                    <Route path="/register" element={<RegisterRide />} />
-                    <Route path="/neighborhoods" element={<Neighborhoods />} />
-                    <Route path="/intelligence" element={<Intelligence />} />
-                    <Route path="/route" element={<DailyRoute />} />
-                    <Route path="/history" element={<HistoryPage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                  </Routes>
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/radar" element={<Analysis />} />
+              <Route path="/register" element={<RegisterRide />} />
+              <Route path="/neighborhoods" element={<Neighborhoods />} />
+              <Route path="/intelligence" element={<Intelligence />} />
+              <Route path="/route" element={<DailyRoute />} />
+              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+          </Route>
         </Routes>
       </Router>
     </AuthProvider>
