@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { 
-  onAuthStateChanged, 
-  signInWithPopup, 
-  signOut, 
-  User, 
-  GoogleAuthProvider 
+import {
+  onAuthStateChanged,
+  signInWithRedirect,
+  getRedirectResult,
+  signOut,
+  User,
 } from "firebase/auth";
 import { auth, googleProvider, isFirebaseConfigured } from "../firebase";
 
@@ -23,17 +23,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isFirebaseConfigured || !auth) {
+    if (!isFirebaseConfigured || !auth || !googleProvider) {
       setLoading(false);
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
+    const initAuth = async () => {
+      try {
+        await getRedirectResult(auth);
+      } catch (error) {
+        console.error("Redirect Login Error:", error);
+      }
+
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+        setLoading(false);
+      });
+
+      return unsubscribe;
+    };
+
+    let unsubscribeRef: (() => void) | undefined;
+
+    initAuth().then((unsubscribe) => {
+      unsubscribeRef = unsubscribe;
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribeRef) unsubscribeRef();
+    };
   }, []);
 
   const login = async () => {
@@ -41,15 +59,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn("Login not available in local mode.");
       return;
     }
+
     try {
-      await signInWithPopup(auth, googleProvider);
+      setLoading(true);
+      await signInWithRedirect(auth, googleProvider);
     } catch (error) {
       console.error("Login Error:", error);
+      setLoading(false);
     }
   };
 
   const logout = async () => {
     if (!isFirebaseConfigured || !auth) return;
+
     try {
       await signOut(auth);
     } catch (error) {
@@ -58,7 +80,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isLocalMode: !isFirebaseConfigured }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        logout,
+        isLocalMode: !isFirebaseConfigured,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
